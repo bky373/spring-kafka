@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2023 the original author or authors.
+ * Copyright 2019-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.kafka.common.TopicPartition;
-
 import org.springframework.lang.Nullable;
 
 /**
@@ -44,11 +42,24 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 
 	private final Map<ConsumerSeekCallback, List<TopicPartition>> callbacksToTopic = new ConcurrentHashMap<>();
 
+	/**
+	 * BR:
+	 * - 스레드를 키로 콜백을 값으로 넣음.
+	 * @param callback the callback.
+	 */
 	@Override
 	public void registerSeekCallback(ConsumerSeekCallback callback) {
 		this.callbackForThread.put(Thread.currentThread(), callback);
 	}
 
+	/**
+	 * BR:
+	 * - 스레드 맵에서 현재 스레드를 키로 주어 콜백을 꺼냄. [스레드(키) -> 콜백(값)]
+	 * - 꺼낸 콜백을 토픽 파티션 요소(키)들의 값으로 동일하게 넣어줌. 즉, [토픽 파티션(키) = 콜백(값)]
+	 * - 또한, 반대 과정도 수행함. [콜백(키) = 토픽 파티션 목록(값)]
+	 * - 콜백 메서드(seekXXX())는 {@link #seekToTimestamp(long)} 가 호출될 때 {@link #getCallbacksAndTopics()} 가 호출되면서 사용된다.
+	 * - TODO 알아볼 것. 콜백을 따로 등록하지 않았다면 InitialOrIdleSeekCallback#seekToTimestamp(Collection, long) 가 실행되는 것으로 보임
+	 */
 	@Override
 	public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
 		ConsumerSeekCallback threadCallback = this.callbackForThread.get(Thread.currentThread());

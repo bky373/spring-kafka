@@ -503,19 +503,27 @@ public abstract class AbstractMessageListenerContainer<K, V>
 
 	@Override
 	public final void start() {
+		// 그룹 ID를 확인합니다. 만약 설정되지 않았다면 예외를 던질 수 있습니다.
 		checkGroupId();
+
+		// lifecycleLock 객체를 잠급니다. 이는 다른 스레드가 동시에 이 블록에 접근하는 것을 방지합니다.
 		this.lifecycleLock.lock();
 		try {
+			// 컨테이너가 실행 중인지 확인합니다.
 			if (!isRunning()) {
+				// 메시지 리스너가 GenericMessageListener의 인스턴스인지 확인합니다.
+				// 그렇지 않으면 예외를 던집니다.
 				Assert.state(this.containerProperties.getMessageListener() instanceof GenericMessageListener,
-						() -> "A " + GenericMessageListener.class.getName() + " implementation must be provided");
+							 () -> "A " + GenericMessageListener.class.getName() + " implementation must be provided");
+				// 컨테이너를 시작하는 실제 로직을 수행합니다.
 				doStart();
 			}
-		}
-		finally {
+		} finally {
+			// 잠금을 해제합니다. 이 블록이 끝나면 항상 실행됩니다.
 			this.lifecycleLock.unlock();
 		}
 	}
+
 
 	protected void checkTopics() {
 		if (this.containerProperties.isMissingTopicsFatal() && this.containerProperties.getTopicPattern() == null) {

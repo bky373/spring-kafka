@@ -93,6 +93,8 @@ public class ConsumerSeekAwareTests {
 		csa.seekToTimestamp(43L);
 		verify(cb1).seekToTimestamp(new LinkedList<>(map1.keySet()), 43L);
 		verify(cb2).seekToTimestamp(new LinkedList<>(map2.keySet()), 43L);
+
+
 		var revoke2 = (Callable<Void>) () -> {
 			if (first.getAndSet(false)) {
 				csa.onPartitionsRevoked(Collections.singletonList(map1.keySet().iterator().next()));

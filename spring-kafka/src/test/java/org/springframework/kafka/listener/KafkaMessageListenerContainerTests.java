@@ -59,7 +59,6 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.aopalliance.intercept.MethodInterceptor;
 import org.apache.commons.logging.LogFactory;
 import org.apache.kafka.clients.consumer.CommitFailedException;
@@ -90,7 +89,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -1536,36 +1534,50 @@ public class KafkaMessageListenerContainerTests {
 	}
 
 	private static Stream<Arguments> testSeekParameters() {
+		// KafkaTestUtils.consumerProps를 사용하여 컨슈머 설정을 생성합니다.
 		Map<String, Object> noAutoCommit = KafkaTestUtils.consumerProps("test15", "true", embeddedKafka);
-		noAutoCommit.remove(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG); // test false by default
+		// 자동 커밋 설정을 제거합니다. 기본적으로 테스트 false 설정입니다.
+		noAutoCommit.remove(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+		// 다양한 컨슈머 설정을 포함한 스트림을 반환합니다.
 		return Stream.of(
+				// 자동 커밋이 false인 설정을 포함합니다.
 				Arguments.of(KafkaTestUtils.consumerProps("test11", "false", embeddedKafka), topic11, false),
+				// 자동 커밋이 true인 설정을 포함합니다.
 				Arguments.of(KafkaTestUtils.consumerProps("test12", "true", embeddedKafka), topic12, true),
+				// 자동 커밋 설정이 없는 설정을 포함합니다.
 				Arguments.of(noAutoCommit, topic15, false));
 	}
+
 
 	@ParameterizedTest(name = "topic:{1} autocommit:{2}")
 	@MethodSource("testSeekParameters")
 	void testSeek(Map<String, Object> props, String topic, boolean autoCommit) throws Exception {
+		// 테스트 시작 로그를 기록합니다.
 		logger.info("Start seek " + topic);
+		// 컨슈머 팩토리를 생성합니다.
 		DefaultKafkaConsumerFactory<Integer, String> cf = new DefaultKafkaConsumerFactory<>(props);
+		// 컨테이너 설정을 생성합니다.
 		ContainerProperties containerProps = new ContainerProperties(topic);
+		// 6개의 메시지를 기다리기 위한 CountDownLatch를 생성합니다.
 		final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(6));
+		// 초기 seek 상태를 나타내는 플래그를 생성합니다.
 		final AtomicBoolean seekInitial = new AtomicBoolean();
+		// idle 상태를 기다리기 위한 CountDownLatch를 생성합니다.
 		final CountDownLatch idleLatch = new CountDownLatch(1);
+
+		// 메시지 리스너와 ConsumerSeekAware를 구현한 내부 클래스를 정의합니다.
 		class Listener implements MessageListener<Integer, String>, ConsumerSeekAware {
-
 			private ConsumerSeekCallback callback;
-
 			private Thread registerThread;
-
 			private Thread messageThread;
 
 			@Override
 			public void onMessage(ConsumerRecord<Integer, String> data) {
 				messageThread = Thread.currentThread();
 				latch.get().countDown();
+				// latch 카운트가 2이고 초기 seek 상태가 아닐 때
 				if (latch.get().getCount() == 2 && !seekInitial.get()) {
+					// 파티션 오프셋을 조정합니다.
 					callback.seekToEnd(topic, 0);
 					callback.seekToBeginning(topic, 0);
 					callback.seek(topic, 0, 1);
@@ -1580,68 +1592,91 @@ public class KafkaMessageListenerContainerTests {
 			}
 
 			@Override
-			public void onPartitionsAssigned(Map<TopicPartition, Long> assignments,
-					ConsumerSeekCallback callback) {
+			public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
+				// 초기 seek 상태일 때 할당된 파티션의 오프셋을 조정합니다.
 				if (seekInitial.get()) {
 					for (Entry<TopicPartition, Long> assignment : assignments.entrySet()) {
-						callback.seek(assignment.getKey().topic(), assignment.getKey().partition(),
-								assignment.getValue() - 1);
+						callback.seek(assignment.getKey().topic(), assignment.getKey().partition(), assignment.getValue() - 1);
 					}
 				}
 			}
 
 			@Override
 			public void onIdleContainer(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
+				// idle 상태일 때 할당된 파티션의 오프셋을 조정합니다.
 				for (Entry<TopicPartition, Long> assignment : assignments.entrySet()) {
-					callback.seek(assignment.getKey().topic(), assignment.getKey().partition(),
-							assignment.getValue() - 1);
+					callback.seek(assignment.getKey().topic(), assignment.getKey().partition(), assignment.getValue() - 1);
 				}
 				idleLatch.countDown();
 			}
-
 		}
 
+		// 리스너 인스턴스를 생성합니다.
 		Listener messageListener = new Listener();
+		// 컨테이너 속성에 리스너를 설정합니다.
 		containerProps.setMessageListener(messageListener);
+		// 커밋 동기화를 설정합니다.
 		containerProps.setSyncCommits(true);
+		// ACK 모드를 레코드 단위로 설정합니다.
 		containerProps.setAckMode(AckMode.RECORD);
+		// idle 이벤트 간격을 설정합니다.
 		containerProps.setIdleEventInterval(60000L);
 		containerProps.setIdleBeforeDataMultiplier(1.0);
 
-		KafkaMessageListenerContainer<Integer, String> container = new KafkaMessageListenerContainer<>(cf,
-				containerProps);
+		// KafkaMessageListenerContainer를 생성합니다.
+		KafkaMessageListenerContainer<Integer, String> container = new KafkaMessageListenerContainer<>(cf, containerProps);
+		// 컨테이너의 이름을 설정합니다.
 		container.setBeanName("testSeek" + topic);
+		// 컨테이너를 시작합니다.
 		container.start();
-		assertThat(KafkaTestUtils.getPropertyValue(container, "listenerConsumer.autoCommit", Boolean.class))
-				.isEqualTo(autoCommit);
+		// 자동 커밋 설정이 올바른지 확인합니다.
+		assertThat(KafkaTestUtils.getPropertyValue(container, "listenerConsumer.autoCommit", Boolean.class)).isEqualTo(autoCommit);
+		// 컨슈머를 스파이로 감시합니다.
 		Consumer<?, ?> consumer = spyOnConsumer(container);
+		// 컨테이너가 파티션을 할당받을 때까지 기다립니다.
 		ContainerTestUtils.waitForAssignment(container, embeddedKafka.getPartitionsPerTopic());
+		// 프로듀서 설정을 생성합니다.
 		Map<String, Object> senderProps = KafkaTestUtils.producerProps(embeddedKafka);
 		ProducerFactory<Integer, String> pf = new DefaultKafkaProducerFactory<>(senderProps);
+		// KafkaTemplate을 생성합니다.
 		KafkaTemplate<Integer, String> template = new KafkaTemplate<>(pf);
 		template.setDefaultTopic(topic);
+		// 메시지를 전송합니다.
 		template.sendDefault(0, 0, "foo");
 		template.sendDefault(1, 0, "bar");
 		template.sendDefault(0, 0, "baz");
 		template.sendDefault(1, 0, "qux");
 		template.flush();
+		// latch가 카운트다운되었는지 확인합니다.
 		assertThat(latch.get().await(60, TimeUnit.SECONDS)).isTrue();
+		// 컨테이너를 중지합니다.
 		container.stop();
+		// 등록된 스레드와 메시지 스레드가 같은지 확인합니다.
 		assertThat(messageListener.registerThread).isSameAs(messageListener.messageThread);
 
-		// Now test initial seek of assigned partitions.
+		// 초기 seek 테스트를 위해 latch를 재설정합니다.
 		latch.set(new CountDownLatch(2));
 		seekInitial.set(true);
+		// 컨테이너를 다시 시작합니다.
 		container.start();
+		// latch가 카운트다운되었는지 확인합니다.
 		assertThat(latch.get().await(60, TimeUnit.SECONDS)).isTrue();
 
-		// Now seek on idle
+		// idle 상태에서 seek 테스트를 위해 latch를 재설정합니다.
+		/**
+		 * [idle 상태에서 seek 테스트의 의미]
+		 * - idle 상태 생성: 컨슈머가 일정 시간 동안 메시지를 받지 않으면 idle 상태가 됩니다. 이 테스트에서는 이 시간을 100밀리초로 설정했습니다.
+		 * - idle 상태에서 seek 테스트: 컨슈머가 idle 상태에 있을 때, 할당된 파티션의 오프셋을 특정 위치로 이동시키는 동작을 검증합니다. 이는 컨슈머가 메시지를 재처리하거나 특정 위치에서 다시 읽어야 할 때 유용합니다.
+		 * - idleEventPublished: 이 플래그는 실제로 idle 이벤트가 발생했는지를 확인하는 데 사용됩니다. 이는 idle 상태를 감지하고 해당 이벤트에 대해 적절히 반응하는지 검증하는 데 중요합니다.
+		 * 이 코드는 Kafka 컨슈머가 idle 상태일 때 특정 오프셋으로 seek 기능을 올바르게 수행하는지 확인하여 메시지 처리의 신뢰성을 보장합니다.
+		 */
 		latch.set(new CountDownLatch(2));
 		seekInitial.set(true);
+		// 컨테이너의 idle 이벤트 간격을 100밀리초로 설정합니다. 이는 컨테이너가 100밀리초 동안 메시지를 받지 못하면 idle 이벤트를 트리거하도록 설정하는 것입니다.
 		container.getContainerProperties().setIdleEventInterval(100L);
 		final AtomicBoolean idleEventPublished = new AtomicBoolean();
+		// 애플리케이션 이벤트 퍼블리셔를 설정합니다.
 		container.setApplicationEventPublisher(new ApplicationEventPublisher() {
-
 			@Override
 			public void publishEvent(Object event) {
 				// NOSONAR
@@ -1651,22 +1686,29 @@ public class KafkaMessageListenerContainerTests {
 			public void publishEvent(ApplicationEvent event) {
 				idleEventPublished.set(true);
 			}
-
 		});
+		// idleLatch가 카운트다운되었는지 확인합니다.
 		assertThat(idleLatch.await(60, TimeUnit.SECONDS)).isTrue();
+		// idle 이벤트가 퍼블리시되었는지 확인합니다.
 		assertThat(idleEventPublished.get()).isTrue();
+		// latch가 카운트다운되었는지 확인합니다.
 		assertThat(latch.get().await(60, TimeUnit.SECONDS)).isTrue();
+		// 컨테이너를 중지합니다.
 		container.stop();
+
 		@SuppressWarnings("unchecked")
 		ArgumentCaptor<Collection<TopicPartition>> captor = ArgumentCaptor.forClass(Collection.class);
+		// 컨슈머의 seekToBeginning 메서드 호출을 검증합니다.
 		verify(consumer).seekToBeginning(captor.capture());
 		TopicPartition next = captor.getValue().iterator().next();
 		assertThat(next.topic()).isEqualTo(topic);
 		assertThat(next.partition()).isEqualTo(0);
+		// 컨슈머의 seekToEnd 메서드 호출을 검증합니다.
 		verify(consumer).seekToEnd(captor.capture());
 		next = captor.getValue().iterator().next();
 		assertThat(next.topic()).isEqualTo(topic);
 		assertThat(next.partition()).isEqualTo(0);
+		// 테스트 종료 로그를 기록합니다.
 		logger.info("Stop seek");
 	}
 
