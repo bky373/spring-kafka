@@ -19,7 +19,7 @@ package org.springframework.kafka.listener;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
+import java.util.HashMap;import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 import org.apache.kafka.common.TopicPartition;
 
-import org.springframework.lang.Nullable;
+import org.springframework.kafka.support.KafkaUtils;import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 
 /**
@@ -45,6 +45,7 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 	private final Map<Thread, ConsumerSeekCallback> callbackForThread = new ConcurrentHashMap<>();
 
 	private final Map<TopicPartition, List<ConsumerSeekCallback>> topicToCallbacks = new ConcurrentHashMap<>();
+	private final Map<TopicPartition, Map<String, List<ConsumerSeekCallback>>> topicToGroupIdCallbacks = new ConcurrentHashMap<>();
 
 	private final Map<ConsumerSeekCallback, List<TopicPartition>> callbackToTopics = new ConcurrentHashMap<>();
 
@@ -59,6 +60,9 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 		if (threadCallback != null) {
 			assignments.keySet().forEach(tp -> {
 				this.topicToCallbacks.computeIfAbsent(tp, key -> new ArrayList<>()).add(threadCallback);
+				this.topicToGroupIdCallbacks.computeIfAbsent(tp, key -> new HashMap<>())
+							.computeIfAbsent(threadCallback.getGroupId(), key -> new ArrayList<>())
+							.add(threadCallback);
 				this.callbackToTopics.computeIfAbsent(threadCallback, key -> new LinkedList<>()).add(tp);
 			});
 		}
@@ -111,7 +115,8 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 	 */
 	@Nullable
 	protected List<ConsumerSeekCallback> getSeekCallbacksFor(TopicPartition topicPartition) {
-		return this.topicToCallbacks.get(topicPartition);
+//		return this.topicToCallbacks.get(topicPartition);
+		return this.topicToGroupIdCallbacks.get(topicPartition).get(KafkaUtils.getConsumerGroupId());
 	}
 
 	/**
@@ -121,8 +126,7 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 	 */
 	@Deprecated(since = "3.3", forRemoval = true)
 	protected Map<TopicPartition, ConsumerSeekCallback> getSeekCallbacks() {
-		Map<TopicPartition, List<ConsumerSeekCallback>> topicsAndCallbacks = getTopicsAndCallbacks();
-		return topicsAndCallbacks.entrySet().stream()
+		return getTopicsAndCallbacks().entrySet().stream()
 			.filter(entry -> !entry.getValue().isEmpty())
 			.collect(Collectors.toMap(
 					Map.Entry::getKey,
