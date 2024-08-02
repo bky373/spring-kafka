@@ -137,6 +137,8 @@ import org.springframework.util.StringUtils;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
+import static org.springframework.kafka.listener.PrintSupport.shortThreadName;
+
 /**
  * Single-threaded Message listener container using the Java {@link Consumer} supporting
  * auto-partition assignment or user-configured assignment.
@@ -1277,6 +1279,10 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 			}
 			else {
 				this.consumerSeekAwareListener.onPartitionsAssigned(current, this.seekCallback);
+				System.out.println("------------ [ListenerConsumer.seekPartitions] thread: " + shortThreadName() + ", assigned: " + current.keySet()
+						.stream()
+						.map(TopicPartition::partition)
+						.toList() + ", seeks: " + seeks.stream().map(TopicPartitionOffset::getPartition).toList());
 			}
 		}
 
@@ -3287,6 +3293,9 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 
 		@Override
 		public void seekToBeginning(Collection<TopicPartition> partitions) {
+			System.out.println("---------------- [ListenerConsumer.seekToBeginning] id: " + getListenerId() + ", seeks: " + seeks.stream()
+					.map(TopicPartitionOffset::getPartition)
+					.toList());
 			this.seeks.addAll(partitions.stream()
 					.map(tp -> new TopicPartitionOffset(tp.topic(), tp.partition(), SeekPosition.BEGINNING))
 					.toList());
@@ -3574,6 +3583,11 @@ public class KafkaMessageListenerContainer<K, V> // NOSONAR line count
 					return;
 				}
 				if (ListenerConsumer.this.genericListener instanceof ConsumerSeekAware) {
+					System.out.println(
+							"-- [ListenerConsumerRebalanceListener.onPartitionsAssigned] thread: " + shortThreadName() + ", assigned: "
+									+ assignedPartitions.stream()
+									.map(TopicPartition::partition)
+									.toList());
 					seekPartitions(partitions, false);
 				}
 				if (this.consumerAwareListener != null) {

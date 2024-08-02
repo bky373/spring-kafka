@@ -27,6 +27,8 @@ import org.apache.kafka.common.TopicPartition;
 
 import org.springframework.lang.Nullable;
 
+import static org.springframework.kafka.listener.PrintSupport.shortThreadName;
+
 /**
  * Manages the {@link ConsumerSeekAware.ConsumerSeekCallback} s for the listener. If the
  * listener subclasses this class, it can easily seek arbitrary topics/partitions without
@@ -51,6 +53,7 @@ public abstract class AbstractConsumerSeekAware implements ConsumerSeekAware {
 
 	@Override
 	public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
+		System.out.println("-------- [AbstractConsumerSeekAware.onPartitionsAssigned] thread: " + shortThreadName() + ", assigned: " + assignments.keySet().stream().map(TopicPartition::partition).toList());
 		ConsumerSeekCallback threadCallback = this.callbackForThread.get(Thread.currentThread());
 		if (threadCallback != null) {
 			assignments.keySet().forEach(tp -> {
