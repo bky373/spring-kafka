@@ -1,5 +1,5 @@
 /*
- * Copyright 2021-2024 the original author or authors.
+ * Copyright 2021-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ import static org.awaitility.Awaitility.await;
  * @author Wang Zhiyang
  * @author Artem Bilan
  * @author Sanghyeok An
+ * @author Borahm Lee
  *
  * @since 3.2
  */
@@ -625,7 +626,6 @@ class RetryTopicClassLevelIntegrationTests {
 					.fixedBackOff(50)
 					.maxAttempts(5)
 					.concurrency(1)
-					.useSingleTopicForSameIntervals()
 					.includeTopic(FIRST_TOPIC)
 					.doNotRetryOnDltFailure()
 					.dltHandlerMethod("myCustomDltProcessor", DLT_METHOD_NAME)

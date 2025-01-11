@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2024 the original author or authors.
+ * Copyright 2018-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import org.springframework.util.Assert;
  * @author Gary Russell
  * @author Adrian Chlebosz
  * @author Wang Zhiyang
+ * @author Borahm Lee
  *
  * @since 2.7
  *
@@ -88,7 +89,7 @@ public class RetryTopicConfigurationBuilder {
 
 	private TopicSuffixingStrategy topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_DELAY_VALUE;
 
-	private SameIntervalTopicReuseStrategy sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.MULTIPLE_TOPICS;
+	private SameIntervalTopicReuseStrategy sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC;
 
 	@Nullable
 	private Boolean autoStartDltHandler;
@@ -255,10 +256,6 @@ public class RetryTopicConfigurationBuilder {
 	/**
 	 * Configure the {@link SameIntervalTopicReuseStrategy}.
 	 *
-	 * <p>Note: for fixed backoffs, when this is configured as
-	 * {@link SameIntervalTopicReuseStrategy#SINGLE_TOPIC}, it has precedence over
-	 * the configuration done through
-	 * {@link #useSingleTopicForSameIntervals()}.
 	 * @param sameIntervalTopicReuseStrategy the strategy.
 	 * @return the builder.
 	 * @since 3.0.4
@@ -279,6 +276,7 @@ public class RetryTopicConfigurationBuilder {
 	 * @since 3.0.4
 	 * @see SameIntervalTopicReuseStrategy
 	 */
+	@Deprecated(since = "3.4", forRemoval = true)
 	public RetryTopicConfigurationBuilder useSingleTopicForSameIntervals() {
 		this.sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC;
 		return this;

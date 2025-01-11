@@ -6,6 +6,8 @@ The retry topic consumer then checks the timestamp and if it's not due it pauses
 When it is due the partition consumption is resumed, and the message is consumed again.
 If the message processing fails again the message will be forwarded to the next retry topic, and the pattern is repeated until a successful processing occurs, or the attempts are exhausted, and the message is sent to the Dead Letter Topic (if configured).
 
+NOTE: Starting with version 3.2, the default behavior is to reuse the retry topic for the same intervals.
+
 To illustrate, if you have a "main-topic" topic, and want to set up non-blocking retry with an exponential backoff of 1000ms with a multiplier of 2 and 4 max attempts, it will create the main-topic-retry-1000, main-topic-retry-2000, main-topic-retry-4000 and main-topic-dlt topics and configure the respective consumers.
 The framework also takes care of creating the topics and setting up and configuring the listeners.
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2024 the original author or authors.
+ * Copyright 2018-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * @author Tomaz Fernandes
  * @author Adrian Chlebosz
+ * @author Borahm Lee
  * @since 2.7
  */
 @ExtendWith(MockitoExtension.class)
@@ -81,9 +82,10 @@ class RetryTopicConfigurationBuilderTests {
 		// then
 		List<DestinationTopic.Properties> destinationTopicProperties = configuration.getDestinationTopicProperties();
 		assertThat(destinationTopicProperties.get(0).delay()).isEqualTo(0);
+		assertThat(destinationTopicProperties.get(1).isRetryTopic()).isTrue();
 		assertThat(destinationTopicProperties.get(1).delay()).isEqualTo(1000);
-		assertThat(destinationTopicProperties.get(2).delay()).isEqualTo(1000);
-		assertThat(destinationTopicProperties.get(3).delay()).isEqualTo(0);
+		assertThat(destinationTopicProperties.get(2).isDltTopic()).isTrue();
+		assertThat(destinationTopicProperties.get(2).delay()).isEqualTo(0);
 	}
 
 	@Test
@@ -99,11 +101,10 @@ class RetryTopicConfigurationBuilderTests {
 		// then
 		List<DestinationTopic.Properties> destinationTopicProperties = configuration.getDestinationTopicProperties();
 		assertThat(destinationTopicProperties.get(0).delay()).isEqualTo(0);
+		assertThat(destinationTopicProperties.get(1).isRetryTopic()).isTrue();
 		assertThat(destinationTopicProperties.get(1).delay()).isEqualTo(0);
+		assertThat(destinationTopicProperties.get(2).isDltTopic()).isTrue();
 		assertThat(destinationTopicProperties.get(2).delay()).isEqualTo(0);
-		assertThat(destinationTopicProperties.get(3).delay()).isEqualTo(0);
-
-
 	}
 
 	@Test
@@ -203,7 +204,7 @@ class RetryTopicConfigurationBuilderTests {
 			.create(kafkaOperations);
 
 		// then
-		DestinationTopic.Properties desExcDltProps = configuration.getDestinationTopicProperties().get(3);
+		DestinationTopic.Properties desExcDltProps = configuration.getDestinationTopicProperties().get(2);
 		assertThat(desExcDltProps.suffix()).isEqualTo("-deserialization-dlt");
 		assertThat(desExcDltProps.usedForExceptions()).containsExactly(DeserializationException.class);
 	}
